@@ -7,7 +7,7 @@ namespace App\Services;
 use App\Data\FetchedImage;
 use App\Exceptions\ImageFetchException;
 use Illuminate\Support\Facades\Http;
-use Psr\Http\Message\StreamInterface;
+use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
 /**
@@ -53,14 +53,7 @@ final class SafeImageFetcher
                 ])
                     ->connectTimeout(self::CONNECT_TIMEOUT_SECONDS)
                     ->timeout(self::TOTAL_TIMEOUT_SECONDS)
-                    ->withOptions([
-                        'allow_redirects' => false,
-                        'stream' => true,
-                        // Pin the hostname to the address we just vetted, so the
-                        // name cannot resolve somewhere else between the check
-                        // and the request.
-                        'curl' => [CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"]],
-                    ])
+                    ->withOptions($this->requestOptions($host, $port, $ip))
                     ->get($current);
             } catch (Throwable $exception) {
                 throw ImageFetchException::because('the download failed: '.$exception->getMessage());
@@ -88,10 +81,39 @@ final class SafeImageFetcher
                 throw ImageFetchException::because("the server returned HTTP {$status}");
             }
 
-            return $this->readImage($response->header('Content-Type'), $response->toPsrResponse()->getBody());
+            return $this->readImage($response->header('Content-Type'), $response->body());
         }
 
         throw ImageFetchException::because('it redirected more than '.self::MAX_REDIRECTS.' times');
+    }
+
+    /**
+     * Guzzle options for one hop.
+     *
+     * Deliberately does NOT set `stream`. Guzzle routes streaming requests to
+     * its stream handler, which refuses cURL options outright — so asking for
+     * both a streamed body and a pinned address silently breaks the download.
+     * The size cap is enforced from the headers and the body instead.
+     *
+     * @return array<string, mixed>
+     */
+    public function requestOptions(string $host, int $port, string $ip): array
+    {
+        return [
+            'allow_redirects' => false,
+            // Pin the hostname to the address we just vetted, so the name
+            // cannot resolve somewhere else between the check and the request.
+            'curl' => [CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"]],
+            // Refuse an oversized body before it is downloaded, when the server
+            // is honest enough to declare a length.
+            'on_headers' => function (ResponseInterface $response): void {
+                $declared = (int) $response->getHeaderLine('Content-Length');
+
+                if ($declared > self::MAX_BYTES) {
+                    throw ImageFetchException::because('the image is larger than 5 MB');
+                }
+            },
+        ];
     }
 
     /**
@@ -206,7 +228,7 @@ final class SafeImageFetcher
      *
      * @throws ImageFetchException
      */
-    private function readImage(string $contentType, StreamInterface $body): FetchedImage
+    private function readImage(string $contentType, string $bytes): FetchedImage
     {
         if (! str_starts_with(strtolower($contentType), 'image/')) {
             $described = $contentType === '' ? 'nothing' : $contentType;
@@ -214,14 +236,8 @@ final class SafeImageFetcher
             throw ImageFetchException::because("the server sent {$described} rather than an image");
         }
 
-        $bytes = '';
-
-        while (! $body->eof()) {
-            $bytes .= $body->read(64 * 1024);
-
-            if (strlen($bytes) > self::MAX_BYTES) {
-                throw ImageFetchException::because('the image is larger than 5 MB');
-            }
+        if (strlen($bytes) > self::MAX_BYTES) {
+            throw ImageFetchException::because('the image is larger than 5 MB');
         }
 
         $info = @getimagesizefromstring($bytes);

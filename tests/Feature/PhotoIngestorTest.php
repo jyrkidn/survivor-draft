@@ -6,6 +6,7 @@ use App\Models\Season;
 use App\Services\CastawayResolver;
 use App\Services\PhotoIngestor;
 use App\Services\SafeImageFetcher;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -66,6 +67,41 @@ describe('the SSRF guard', function () {
         app(PhotoIngestor::class)->ingest($this->castaway, 'https://169.254.169.254/latest/meta-data/');
 
         Http::assertNothingSent();
+    });
+});
+
+describe('the request options', function () {
+    // Http::fake() bypasses the handler entirely, so the options we hand Guzzle
+    // were never exercised by the other tests. This one checks them directly:
+    // asking for a streamed body routes the request to Guzzle's stream handler,
+    // which rejects cURL options outright and breaks every download.
+    it('never asks for a streamed body, which would disable the address pinning', function () {
+        $options = app(SafeImageFetcher::class)->requestOptions('example.com', 443, '1.1.1.1');
+
+        expect($options)->not->toHaveKey('stream')
+            ->and($options['curl'][CURLOPT_RESOLVE])->toBe(['example.com:443:1.1.1.1']);
+    });
+
+    it('pins the exact address that was vetted', function () {
+        $options = app(SafeImageFetcher::class)->requestOptions('cdn.example.com', 8443, '203.0.113.7');
+
+        expect($options['curl'][CURLOPT_RESOLVE])->toBe(['cdn.example.com:8443:203.0.113.7'])
+            ->and($options['allow_redirects'])->toBeFalse();
+    });
+
+    it('rejects an oversized body from the headers, before it is downloaded', function () {
+        $options = app(SafeImageFetcher::class)->requestOptions('example.com', 443, '1.1.1.1');
+        $tooBig = new Response(200, ['Content-Length' => (string) (6 * 1024 * 1024)]);
+
+        expect(fn () => $options['on_headers']($tooBig))
+            ->toThrow(ImageFetchException::class, 'larger than 5 MB');
+    });
+
+    it('lets a reasonable body through the header check', function () {
+        $options = app(SafeImageFetcher::class)->requestOptions('example.com', 443, '1.1.1.1');
+        $fine = new Response(200, ['Content-Length' => '204800']);
+
+        expect($options['on_headers']($fine))->toBeNull();
     });
 });
 
