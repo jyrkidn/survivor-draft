@@ -1,0 +1,67 @@
+/* Survivor Draft League — design tokens.
+   Reference only: the mock uses inline styles. Wire these into the Tailwind theme
+   (or import as-is) so the app has one source of truth. */
+
+:root {
+  /* surfaces */
+  --ink: #0a1f2c;
+  --ink-deep: #06161f;
+  --header: #0a2b2c;
+
+  /* lines */
+  --chart-line: #2f6377;
+  --chart-line-dim: #12313f;
+  --chart-line-empty: #1e4658;
+  --tribe-teal: #1d5b58;
+
+  /* type */
+  --sand: #efe2c0;
+  --sand-muted: #a99f88;
+  --sea-green: #7fae9d;
+  --dead: #5b6f7a;
+  --dead-dim: #3f5b68;
+
+  /* managers — the only saturated colours in the app */
+  --mgr-a: #ff6b4a;
+  --mgr-b: #f2b134;
+
+  /* type stacks */
+  --font-display: 'IBM Plex Sans Condensed', sans-serif;
+  --font-body: 'IBM Plex Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* snake board geometry — cells and SVG path must derive from these */
+  --snake-w: 560px;
+  --snake-h: 620px;
+  --snake-col-a: 140px;
+  --snake-col-b: 420px;
+  --snake-row-0: 31px;
+  --snake-row-step: 62px;
+  --snake-cell-w: 220px;
+  --snake-cell-h: 46px;
+}
+
+.band-carved {
+  background: var(--header);
+  background-image: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 9px);
+  border-bottom: 2px solid var(--tribe-teal);
+}
+
+.chart-grid {
+  background-color: var(--ink);
+  background-image:
+    linear-gradient(var(--chart-line-dim) 1px, transparent 1px),
+    linear-gradient(90deg, var(--chart-line-dim) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.photo-placeholder {
+  aspect-ratio: 4 / 5;
+  background: repeating-linear-gradient(135deg, #12303f 0 5px, #0d2432 5px 10px);
+  border: 1px solid var(--tribe-teal);
+}
+
+@keyframes clockPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 74, 0.45); }
+  50%      { box-shadow: 0 0 0 6px rgba(255, 107, 74, 0); }
+}

@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'mcp' => [
+        'token' => env('MCP_TOKEN'),
+    ],
+
 ];

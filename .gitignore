@@ -2,6 +2,10 @@
 /bootstrap/ssr
 /node_modules
 /public/build
+# Filament republishes these on every composer install via filament:upgrade.
+/public/css/filament
+/public/js/filament
+/public/fonts/filament
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage

@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Cast Photo Disk
+    |--------------------------------------------------------------------------
+    |
+    | Where ingested cast photos are stored. Locally this is the public disk;
+    | on Laravel Cloud the container filesystem is ephemeral, so it points at
+    | the object-storage bucket instead and the photos survive a redeploy.
+    |
+    */
+
+    'cast_photos' => env('CAST_PHOTO_DISK', 'public'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |
@@ -49,6 +62,7 @@ return [
 
         's3' => [
             'driver' => 's3',
+            'visibility' => 'public',
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
             'region' => env('AWS_DEFAULT_REGION'),

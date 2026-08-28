@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        // Filament owns the only login, so unauthenticated visitors go there.
+        $middleware->redirectGuestsTo('/admin/login');
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,

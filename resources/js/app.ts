@@ -1,33 +1,13 @@
 import { createInertiaApp } from '@inertiajs/vue3';
-import { initializeTheme } from '@/composables/useAppearance';
-import AppLayout from '@/layouts/AppLayout.vue';
-import AuthLayout from '@/layouts/AuthLayout.vue';
-import SettingsLayout from '@/layouts/settings/Layout.vue';
-import { initializeFlashToast } from '@/lib/flashToast';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
-    layout: (name) => {
-        switch (true) {
-            case name === 'Welcome':
-                return null;
-            case name.startsWith('auth/'):
-                return AuthLayout;
-            case name.startsWith('settings/'):
-                return [AppLayout, SettingsLayout];
-            default:
-                return AppLayout;
-        }
-    },
+    // Each screen carries its own header band, so there is no shared layout.
+    layout: () => null,
+    // Sand, so the bar reads as part of the palette.
     progress: {
-        color: '#4B5563',
+        color: '#efe2c0',
     },
 });
-
-// This will set light / dark mode on page load...
-initializeTheme();
-
-// This will listen for flash toast data from the server...
-initializeFlashToast();
