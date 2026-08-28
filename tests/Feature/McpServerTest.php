@@ -122,8 +122,14 @@ describe('the handshake', function () {
     it('lists every tool', function () {
         $names = collect(rpc('tools/list')->assertOk()->json('result.tools'))->pluck('name');
 
-        expect($names)->toHaveCount(19)
-            ->and($names)->toContain('get_scoreboard', 'record_episode', 'make_draft_pick', 'set_castaway_photos');
+        expect($names)->toHaveCount(20)
+            ->and($names)->toContain(
+                'get_scoreboard',
+                'record_episode',
+                'make_draft_pick',
+                'set_castaway_photos',
+                'add_castaways',
+            );
     });
 });
 
@@ -274,6 +280,66 @@ describe('the tools', function () {
         expect(callTool('list_castaways')['structured']['count'])->toBe(6)
             ->and(callTool('list_castaways', ['status' => 'out'])['structured']['count'])->toBe(1)
             ->and(callTool('list_castaways', ['status' => 'in'])['structured']['count'])->toBe(5);
+    });
+
+    it('adds castaways to the cast', function () {
+        $result = callTool('add_castaways', ['castaways' => [
+            ['name' => 'Nina Cortez', 'age' => 31, 'occupation' => 'Vet', 'tribe' => 'Vula'],
+            ['name' => 'Owen Blake'],
+        ]]);
+
+        expect($result['isError'])->toBeFalse()
+            ->and($result['structured']['created'])->toBe(2)
+            ->and($result['structured']['updated'])->toBe(0)
+            ->and($result['structured']['cast_size'])->toBe(8);
+
+        $nina = Castaway::query()->where('name', 'Nina Cortez')->sole();
+
+        expect($nina->age)->toBe(31)
+            ->and($nina->tribe)->toBe('Vula');
+    });
+
+    it('corrects a castaway instead of duplicating them, and keeps details it was not given', function () {
+        callTool('add_castaways', ['castaways' => [
+            ['name' => 'Nina Cortez', 'age' => 31, 'occupation' => 'Vet'],
+        ]]);
+
+        $result = callTool('add_castaways', ['castaways' => [
+            ['name' => 'Nina Cortez', 'age' => 32],
+        ]]);
+
+        expect($result['structured']['created'])->toBe(0)
+            ->and($result['structured']['updated'])->toBe(1);
+
+        $nina = Castaway::query()->where('name', 'Nina Cortez')->sole();
+
+        expect($nina->age)->toBe(32)
+            // Not supplied the second time, so it survives.
+            ->and($nina->occupation)->toBe('Vet');
+    });
+
+    it('warns when the cast no longer matches the season roster size', function () {
+        $result = callTool('add_castaways', ['castaways' => [['name' => 'Nina Cortez']]]);
+
+        // The season is set to a roster of 6 but now holds 7.
+        expect($result['structured']['warnings'][0])
+            ->toContain('is set to a roster of 6 but now has 7 castaways');
+    });
+
+    it('is immediately usable by the other tools', function () {
+        callTool('add_castaways', ['castaways' => [['name' => 'Nina Cortez', 'nickname' => 'Nina']]]);
+
+        $pick = callTool('make_draft_pick', ['manager' => 'Jyrki', 'castaway' => 'Nina']);
+
+        expect($pick['isError'])->toBeFalse()
+            ->and($pick['structured']['castaway'])->toBe('Nina Cortez');
+    });
+
+    it('rejects a call with no castaways', function () {
+        $result = callTool('add_castaways', ['castaways' => []]);
+
+        expect($result['isError'])->toBeTrue()
+            ->and($result['text'])->toContain('at least one castaway');
     });
 
     it('assigns tribes so immunity can be recorded by tribe name', function () {

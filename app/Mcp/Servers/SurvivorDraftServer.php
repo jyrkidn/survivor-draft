@@ -56,6 +56,7 @@ final class SurvivorDraftServer extends Server
         Tools\DeleteEvent::class,
         Tools\SetFinalPlacements::class,
         Tools\ListCastaways::class,
+        Tools\AddCastaways::class,
         Tools\SetTribes::class,
         Tools\SetCastawayPhoto::class,
         Tools\SetCastawayPhotos::class,
