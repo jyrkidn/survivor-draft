@@ -70,18 +70,22 @@ class Castaway extends Model
     }
 
     /**
-     * A displayable image: the locally stored file if the download landed,
-     * otherwise the source URL we were given, so a blocked fetch degrades to a
-     * hotlink rather than a broken image.
+     * A displayable image: the stored file if the download landed, otherwise
+     * the source URL we were given, so a blocked fetch degrades to a hotlink
+     * rather than a broken image.
+     *
+     * Deliberately does not ask the disk whether the file is there. A stored
+     * `photo_path` only ever gets written after PhotoIngestor has put the
+     * bytes, so the check bought nothing — and on a remote disk it cost a
+     * network round trip for every castaway on every page render, and made an
+     * unconfigured disk take the whole page down rather than just the image.
      */
     public function photoUrl(): ?string
     {
-        $disk = Storage::disk(config('filesystems.cast_photos'));
-
-        if ($this->photo_path !== null && $disk->exists($this->photo_path)) {
-            return $disk->url($this->photo_path);
+        if ($this->photo_path === null) {
+            return $this->photo_source_url;
         }
 
-        return $this->photo_source_url;
+        return Storage::disk(config('filesystems.cast_photos'))->url($this->photo_path);
     }
 }
